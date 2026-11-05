@@ -31,8 +31,8 @@ A pi package that brings core MemPalace workflows to pi.
   - auto-save reminder every 15 non-command user messages using the upstream-style memory filing protocol (`mempalace_diary_write`, `mempalace_add_drawer`, optional `mempalace_kg_add`)
   - explicit UI toasts when auto-save or pre-compaction checkpoints trigger
   - if `mempalace_hook_settings` is available, Pi maps `silent_save=true` to silent autosave checkpoints and `desktop_toast` to Pi toast visibility
-  - background auto-ingest on save checkpoints using `MEMPAL_DIR`, current session file directory, or `cwd`
-  - synchronous pre-compaction ingest; if that cannot preserve context, Pi falls back to a one-time blocking save reminder
+  - background auto-ingest on save checkpoints using `MEMPAL_DIR`, the current session file, or `cwd`
+  - synchronous pre-compaction ingest; if preservation fails, Pi cancels compaction and shows a warning
 
 ## Requirements
 
@@ -160,7 +160,7 @@ This extension includes a built-in MCP bridge for `mempalace.mcp_server`, so Pi 
 
 On save checkpoints and pre-compaction, the extension tries to preserve memory by mining the best available target in this order:
 1. `MEMPAL_DIR`
-2. the current Pi session file directory
+2. the current Pi session file, using conversation mode
 3. the current working directory
 
 That keeps Pi close to the upstream Claude plugin's transcript-aware save behavior, while documenting the remaining Pi-specific hook differences in the parity doc.

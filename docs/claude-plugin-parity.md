@@ -21,7 +21,7 @@ Bring `mempalace-pi` as close as practical to upstream MemPalace behavior, espec
 | Save checkpoint cadence | stop hook every 15 human messages | Aligned | Pi keeps the 15-message cadence. |
 | Save checkpoint wording | explicit `diary_write` + `add_drawer` + optional `kg_add` guidance | Aligned | Pi save prompts now call out the same write-path tools and duplicate-check guidance. |
 | Precompact preservation | upstream hook code mines synchronously before compaction | Adapted | Pi now attempts synchronous `mempalace mine` before compaction. If that cannot preserve context, Pi falls back to a one-time blocking save prompt. |
-| Auto-ingest target | `MEMPAL_DIR`, else transcript directory | Adapted | Pi target priority is `MEMPAL_DIR` → session file directory → `cwd`. Pi does not expose Claude's transcript-path hook payload directly. |
+| Auto-ingest target | `MEMPAL_DIR`, else transcript directory | Adapted | Pi target priority is `MEMPAL_DIR` → current session file → `cwd`. Session files use conversation mode. |
 | MCP write-tool discoverability | full server tool surface available to the agent | Aligned | Pi dynamically exposes all discovered MCP tools and adds prompt guidance for key save/system tools. |
 | Upstream documented tool parity | 29 documented MCP tools in current docs | Adapted | Pi exposes whatever the installed MemPalace server offers and reports documented-tool gaps in `/mempalace:doctor`. |
 | System/operator tools | hook_settings, memories_filed_away, reconnect | Adapted | Pi surfaces them via dynamic MCP registration; hook_settings now actively influences Pi autosave/toast behavior, memories_filed_away is consulted for silent checkpoint confirmation/doctor output, and reconnect is used after CLI/foreground ingest writes plus surfaced in diagnostics. |
@@ -43,7 +43,7 @@ Upstream hook code gets a transcript path from the harness. Pi does not provide 
 
 **Pi fallback order:**
 1. `MEMPAL_DIR`
-2. current session file directory
+2. current session file
 3. `ctx.cwd`
 
 This is the closest Pi-native approximation of upstream transcript-aware mining.
