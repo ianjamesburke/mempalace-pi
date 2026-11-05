@@ -5,6 +5,12 @@ export function chooseAutoIngestTarget({ envTarget, sessionTarget, cwdTarget }) 
 	return {};
 }
 
+export function autoIngestArgs(targetPath, targetSource) {
+	return targetSource === "session"
+		? ["mine", targetPath, "--mode", "convos", "--wing", "sessions"]
+		: ["mine", targetPath];
+}
+
 export function canForegroundIngestSatisfyPrecompact(ingest) {
 	return Boolean(ingest?.started && ingest?.result?.code === 0 && ingest?.targetSource && ingest.targetSource !== "cwd");
 }

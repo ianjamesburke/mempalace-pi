@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { existsSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { chooseAutoIngestTarget } from "./auto-ingest-policy.js";
+import { autoIngestArgs, chooseAutoIngestTarget } from "./auto-ingest-policy.js";
 import { AUTO_SAVE_MARKER, DEFAULT_MINE_TIMEOUT_MS } from "./constants";
 
 type SessionEntryLike = {
@@ -139,6 +139,8 @@ export type AutoIngestOutcome = {
 	result?: ExecResult;
 };
 
+const backgroundIngests = new Map<string, Promise<unknown>>();
+
 function normalizeDirectory(candidate: string | undefined): string | undefined {
 	const trimmed = candidate?.trim();
 	if (!trimmed) return undefined;
@@ -158,7 +160,10 @@ export function resolveAutoIngestTarget(ctx?: Pick<ExtensionContext, "cwd" | "se
 } {
 	return chooseAutoIngestTarget({
 		envTarget: normalizeDirectory(process.env.MEMPAL_DIR),
-		sessionTarget: normalizeDirectory(ctx?.sessionManager.getSessionFile?.()),
+		sessionTarget: (() => {
+			const file = ctx?.sessionManager.getSessionFile?.();
+			try { return file && statSync(file).isFile() ? resolve(file) : undefined; } catch { return undefined; }
+		})(),
 		cwdTarget: normalizeDirectory(ctx?.cwd),
 	});
 }
@@ -176,6 +181,12 @@ export async function maybeAutoIngest(
 
 	const { targetPath, targetSource } = resolveAutoIngestTarget(ctx);
 	if (!targetPath || !targetSource) return { started: false, mode };
+	const args = autoIngestArgs(targetPath, targetSource);
+	const pending = backgroundIngests.get(targetPath);
+	if (pending && mode === "foreground") await pending;
+	if (pending && mode === "background") {
+		return { started: false, mode, targetPath, targetSource };
+	}
 
 	// Mine timeout — prevents unbounded runs that block admin operations
 	const timeoutMs = parseInt(process.env.MEMPALACE_MINE_TIMEOUT_MS ?? "", 10);
@@ -188,19 +199,23 @@ export async function maybeAutoIngest(
 	const mineSignal = controller.signal;
 
 	if (mode === "background") {
-		void runMemPalace(pi, ["mine", targetPath], mineSignal).catch(() => undefined);
+		const job = runMemPalace(pi, args, mineSignal).catch(() => undefined).finally(() => {
+			clearTimeout(timeout);
+			backgroundIngests.delete(targetPath);
+		});
+		backgroundIngests.set(targetPath, job);
 		return {
 			started: true,
 			mode,
 			targetPath,
 			targetSource,
-			command: ["mempalace", "mine", targetPath],
+			command: ["mempalace", ...args],
 		};
 	}
 
 	// Foreground mode — never throw, return structured failure on timeout/error
 	try {
-		const run = await runMemPalace(pi, ["mine", targetPath], mineSignal);
+		const run = await runMemPalace(pi, args, mineSignal);
 		clearTimeout(timeout);
 		if (timedOut) {
 			return { started: true, mode, result: { stdout: "", stderr: "mine timed out", code: -1 }, command: run.command, targetPath, targetSource };

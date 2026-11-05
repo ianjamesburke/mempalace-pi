@@ -89,10 +89,6 @@ export function registerHooks(pi: ExtensionAPI, runtime: MemPalaceRuntime) {
 		if (!warningKey) {
 			return;
 		}
-		if (runtime.lastPreCompactWarningKey === warningKey) {
-			return;
-		}
-
 		const hookSettings = await runtime.refreshHookSettings(event.signal);
 		const ingest = await maybeAutoIngest(pi, ctx, event.signal, "foreground");
 		runtime.recordAutoIngest(ingest);
@@ -113,7 +109,7 @@ export function registerHooks(pi: ExtensionAPI, runtime: MemPalaceRuntime) {
 		if (ctx.hasUI && shouldShowHookToast(hookSettings)) {
 			ctx.ui.notify("MemPalace pre-compact save checkpoint triggered", "warning");
 		}
-		sendUserMessage(pi, ctx, `${AUTO_SAVE_MARKER}\n${PRECOMPACT_BLOCK_REASON}`);
+		pi.sendMessage({ customType: "mempalace-notice", content: PRECOMPACT_BLOCK_REASON, display: true });
 		return { cancel: true };
 	});
 }
